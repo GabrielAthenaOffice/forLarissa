@@ -4,7 +4,6 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   View,
@@ -17,24 +16,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MaxContentWidth, Spacing } from "@/constants/theme";
 import { useSession } from "@/context/auth";
-import { useTheme } from "@/hooks/use-theme";
-import type { UserRole } from "@/types/database";
-
-// Admin é criado pelo coordenador; no cadastro só passageiro ou motorista.
-const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
-  { value: "passenger", label: "Passageiro" },
-  { value: "driver", label: "Motorista" },
-];
 
 export default function RegisterScreen() {
   const { signUp } = useSession();
   const router = useRouter();
-  const theme = useTheme();
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<UserRole>("passenger");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -49,12 +38,7 @@ export default function RegisterScreen() {
       return;
     }
     setLoading(true);
-    const { error, needsConfirmation } = await signUp({
-      name,
-      email,
-      password,
-      role,
-    });
+    const { error, needsConfirmation } = await signUp({ name, email, password });
     setLoading(false);
 
     if (error) {
@@ -80,9 +64,9 @@ export default function RegisterScreen() {
         <SafeAreaView style={styles.flex}>
           <ScrollView contentContainerStyle={styles.scroll}>
             <View style={styles.header}>
-              <ThemedText type="title">Criar conta</ThemedText>
+              <ThemedText type="title">Criar conta de motorista</ThemedText>
               <ThemedText type="default" themeColor="textSecondary">
-                Comece a usar o rotas-flow
+                Sua conta ficará pendente até a aprovação do administrador.
               </ThemedText>
             </View>
 
@@ -112,40 +96,6 @@ export default function RegisterScreen() {
                 secureTextEntry
                 autoCapitalize="none"
               />
-
-              <View style={styles.roleWrapper}>
-                <ThemedText type="smallBold" themeColor="textSecondary">
-                  Você é
-                </ThemedText>
-                <View style={styles.roleRow}>
-                  {ROLE_OPTIONS.map((option) => {
-                    const selected = role === option.value;
-                    return (
-                      <Pressable
-                        key={option.value}
-                        onPress={() => setRole(option.value)}
-                        style={[
-                          styles.roleChip,
-                          {
-                            backgroundColor: selected
-                              ? theme.text
-                              : theme.backgroundElement,
-                          },
-                        ]}
-                      >
-                        <ThemedText
-                          type="smallBold"
-                          style={{
-                            color: selected ? theme.background : theme.text,
-                          }}
-                        >
-                          {option.label}
-                        </ThemedText>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </View>
 
               {error && (
                 <ThemedText type="small" style={styles.error}>
@@ -186,15 +136,6 @@ const styles = StyleSheet.create({
   },
   header: { gap: Spacing.two },
   form: { gap: Spacing.three },
-  roleWrapper: { gap: Spacing.two },
-  roleRow: { flexDirection: "row", gap: Spacing.two },
-  roleChip: {
-    flex: 1,
-    height: 48,
-    borderRadius: Spacing.three,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   error: { color: "#e5484d" },
   footer: {
     flexDirection: "row",

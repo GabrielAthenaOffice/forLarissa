@@ -6,7 +6,6 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  Switch,
   View,
 } from "react-native";
 
@@ -17,13 +16,18 @@ import { DateTimeField } from "@/components/ui/date-field";
 import { Input } from "@/components/ui/input";
 import { MaxContentWidth, Spacing } from "@/constants/theme";
 import { useSession } from "@/context/auth";
-import { createRoute, getRoute, updateRoute } from "@/lib/queries/routes";
+import { getRoute } from "@/lib/queries/routes";
+import { createRouteRequest } from "@/lib/queries/route-requests";
 
-export default function RouteFormScreen() {
+/**
+ * Coordenador solicita CRIAÇÃO de uma rota, ou EDIÇÃO de uma existente
+ * (quando recebe ?id=<route_id>). O admin aprova depois.
+ */
+export default function SolicitarRotaScreen() {
   const router = useRouter();
   const { profile } = useSession();
   const { id } = useLocalSearchParams<{ id?: string }>();
-  const isEditing = !!id;
+  const isEdit = !!id;
 
   const [title, setTitle] = useState("");
   const [origin, setOrigin] = useState("");
@@ -31,26 +35,24 @@ export default function RouteFormScreen() {
   const [description, setDescription] = useState("");
   const [departureTime, setDepartureTime] = useState("08:00");
   const [durationMin, setDurationMin] = useState("60");
-  const [isActive, setIsActive] = useState(true);
 
-  const [loading, setLoading] = useState(isEditing);
+  const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Carrega a rota existente ao editar.
+  // Ao solicitar edição, pré-carrega os valores atuais da rota.
   useEffect(() => {
     if (!id) return;
     let active = true;
     getRoute(id)
-      .then((route) => {
+      .then((r) => {
         if (!active) return;
-        setTitle(route.title);
-        setOrigin(route.origin);
-        setDestination(route.destination);
-        setDescription(route.description ?? "");
-        setDepartureTime(route.departure_time?.slice(0, 5) || "08:00");
-        setDurationMin(String(route.duration_min ?? 60));
-        setIsActive(route.is_active);
+        setTitle(r.title);
+        setOrigin(r.origin);
+        setDestination(r.destination);
+        setDescription(r.description ?? "");
+        setDepartureTime(r.departure_time?.slice(0, 5) || "08:00");
+        setDurationMin(String(r.duration_min ?? 60));
       })
       .catch((e) => active && setError(e.message ?? "Erro ao carregar rota"))
       .finally(() => active && setLoading(false));
@@ -59,7 +61,7 @@ export default function RouteFormScreen() {
     };
   }, [id]);
 
-  async function handleSave() {
+  async function handleSubmit() {
     setError(null);
     if (!title.trim() || !origin.trim() || !destination.trim()) {
       setError("Preencha título, origem e destino.");
@@ -70,25 +72,24 @@ export default function RouteFormScreen() {
       setError("Informe uma duração válida (em minutos).");
       return;
     }
-    const input = {
-      title: title.trim(),
-      origin: origin.trim(),
-      destination: destination.trim(),
-      description: description.trim() || null,
-      departure_time: departureTime,
-      duration_min: duration,
-      is_active: isActive,
-    };
     setSaving(true);
     try {
-      if (isEditing) {
-        await updateRoute(id, input);
-      } else {
-        await createRoute(input, profile!.id);
-      }
+      await createRouteRequest(
+        {
+          kind: isEdit ? "edit" : "create",
+          route_id: id ?? null,
+          title: title.trim(),
+          origin: origin.trim(),
+          destination: destination.trim(),
+          description: description.trim() || null,
+          departure_time: departureTime,
+          duration_min: duration,
+        },
+        profile!.id
+      );
       router.back();
     } catch (e: any) {
-      setError(e.message ?? "Erro ao salvar rota");
+      setError(e.message ?? "Erro ao enviar solicitação");
       setSaving(false);
     }
   }
@@ -103,38 +104,23 @@ export default function RouteFormScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <Stack.Screen options={{ title: isEditing ? "Editar rota" : "Nova rota" }} />
+      <Stack.Screen options={{ title: isEdit ? "Solicitar edição" : "Solicitar rota" }} />
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <ScrollView contentContainerStyle={styles.scroll}>
-          <Input
-            label="Título"
-            value={title}
-            onChangeText={setTitle}
-            placeholder="Ex: Centro → Zona Sul"
-          />
-          <Input
-            label="Origem"
-            value={origin}
-            onChangeText={setOrigin}
-            placeholder="Ponto de partida"
-          />
-          <Input
-            label="Destino"
-            value={destination}
-            onChangeText={setDestination}
-            placeholder="Ponto de chegada"
-          />
+          <ThemedText type="small" themeColor="textSecondary">
+            Esta solicitação será enviada ao administrador para aprovação.
+          </ThemedText>
+
+          <Input label="Título" value={title} onChangeText={setTitle} placeholder="Ex: Centro → Zona Sul" />
+          <Input label="Origem" value={origin} onChangeText={setOrigin} placeholder="Ponto de partida" />
+          <Input label="Destino" value={destination} onChangeText={setDestination} placeholder="Ponto de chegada" />
+
           <View style={styles.timeRow}>
             <View style={styles.flex}>
-              <DateTimeField
-                label="Horário de partida"
-                value={departureTime}
-                onChange={setDepartureTime}
-                mode="time"
-              />
+              <DateTimeField label="Horário de partida" value={departureTime} onChange={setDepartureTime} mode="time" />
             </View>
             <View style={styles.flex}>
               <Input
@@ -152,16 +138,11 @@ export default function RouteFormScreen() {
             label="Descrição (opcional)"
             value={description}
             onChangeText={setDescription}
-            placeholder="Detalhes da rota"
+            placeholder="Justificativa / detalhes"
             multiline
             numberOfLines={3}
             style={styles.multiline}
           />
-
-          <View style={styles.switchRow}>
-            <ThemedText type="smallBold">Rota ativa</ThemedText>
-            <Switch value={isActive} onValueChange={setIsActive} />
-          </View>
 
           {error && (
             <ThemedText type="small" style={styles.error}>
@@ -170,8 +151,8 @@ export default function RouteFormScreen() {
           )}
 
           <Button
-            title={isEditing ? "Salvar alterações" : "Cadastrar rota"}
-            onPress={handleSave}
+            title={isEdit ? "Enviar solicitação de edição" : "Enviar solicitação"}
+            onPress={handleSubmit}
             loading={saving}
           />
         </ScrollView>
@@ -183,23 +164,9 @@ export default function RouteFormScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   flex: { flex: 1 },
-  timeRow: { flexDirection: "row", gap: Spacing.three },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  scroll: {
-    padding: Spacing.four,
-    gap: Spacing.three,
-    width: "100%",
-    maxWidth: MaxContentWidth,
-    alignSelf: "center",
-  },
+  scroll: { padding: Spacing.four, gap: Spacing.three, width: "100%", maxWidth: MaxContentWidth, alignSelf: "center" },
+  timeRow: { flexDirection: "row", gap: Spacing.three },
   multiline: { height: 96, paddingTop: Spacing.three, textAlignVertical: "top" },
-  switchRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: Spacing.two,
-  },
   error: { color: "#e5484d" },
 });
-
-

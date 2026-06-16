@@ -1,6 +1,6 @@
 import { useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
-import { Car, CalendarClock, Users, MapPin, Navigation } from "lucide-react-native";
+import { Car, MapPin, Navigation } from "lucide-react-native";
 
 import { Dashboard, type DashboardAction } from "@/components/dashboard";
 import { useMyDriver } from "@/hooks/use-my-driver";
@@ -10,7 +10,7 @@ import { useTheme } from "@/hooks/use-theme";
 export default function MotoristaHome() {
   const theme = useTheme();
   const { driver } = useMyDriver();
-  const [s, setS] = useState({ tripsToday: 0, upcomingTrips: 0, pendingRequests: 0 });
+  const [s, setS] = useState({ assignmentsToday: 0, upcoming: 0 });
 
   useFocusEffect(
     useCallback(() => {
@@ -30,31 +30,20 @@ export default function MotoristaHome() {
 
   const ACTIONS: DashboardAction[] = [
     { label: "Meu veículo", description: "Cadastrar dados do carro", href: "/motorista/veiculo", icon: <Car size={20} stroke={theme.accent} /> },
-    { label: "Disponibilidade", description: "Informar datas e horários", href: "/motorista/disponibilidade", icon: <CalendarClock size={20} stroke={theme.accent} /> },
-    { label: "Solicitações", description: "Aprovar ou recusar passageiros", href: "/motorista/solicitacoes", icon: <Users size={20} stroke={theme.accent} /> },
-    { label: "Agenda do dia", description: "Viagens confirmadas", href: "/motorista/agenda", icon: <MapPin size={20} stroke={theme.accent} /> },
+    { label: "Minhas rotas", description: "Rotas designadas a você", href: "/motorista/minhas-rotas", icon: <MapPin size={20} stroke={theme.accent} /> },
   ];
 
   return (
     <Dashboard
       roleLabel="Motorista"
-      hero={{ 
-        label: "Viagens hoje", 
-        value: s.tripsToday, 
+      hero={{
+        label: "Rotas hoje",
+        value: s.assignmentsToday,
         caption: vehicleCaption,
-        icon: <Navigation size={28} stroke={theme.accentText} />
+        icon: <Navigation size={28} stroke={theme.accentText} />,
       }}
-      stats={[
-        { label: "Próximas viagens", value: s.upcomingTrips },
-        {
-          label: "Solicitações",
-          value: s.pendingRequests,
-          tone: s.pendingRequests > 0 ? "accent" : "default",
-        },
-      ]}
+      stats={[{ label: "Próximas rotas", value: s.upcoming }]}
       actions={ACTIONS}
     />
   );
 }
-
-

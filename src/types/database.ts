@@ -2,9 +2,10 @@
 // Dica: depois você pode gerar isto automaticamente com:
 //   npx supabase gen types typescript --local > src/types/database.ts
 
-export type UserRole = "passenger" | "driver" | "admin";
-export type TripStatus = "open" | "full" | "cancelled" | "completed";
+export type UserRole = "driver" | "coordinator" | "admin";
 export type RequestStatus = "pending" | "approved" | "rejected" | "cancelled";
+export type AssignmentStatus = "assigned" | "completed" | "cancelled";
+export type RouteRequestKind = "create" | "edit";
 
 export interface Profile {
   id: string;
@@ -32,43 +33,38 @@ export interface Route {
   origin: string;
   destination: string;
   description: string | null;
+  departure_time: string; // HH:MM[:SS]
+  duration_min: number;
   is_active: boolean;
   created_by: string | null;
   created_at: string;
 }
 
-export interface DriverAvailability {
-  id: string;
-  driver_id: string;
-  route_id: string;
-  weekday: number | null;
-  date: string | null;
-  departure_time: string;
-  available_seats: number;
-  is_active: boolean;
-  created_at: string;
-}
-
-export interface Trip {
+export interface RouteAssignment {
   id: string;
   route_id: string;
   driver_id: string;
-  availability_id: string | null;
-  trip_date: string;
-  departure_time: string;
-  total_seats: number;
-  available_seats: number;
-  status: TripStatus;
+  date: string; // YYYY-MM-DD
+  status: AssignmentStatus;
+  created_by: string | null;
   created_at: string;
 }
 
-export interface TripRequest {
+export interface RouteRequest {
   id: string;
-  trip_id: string;
-  passenger_id: string;
+  kind: RouteRequestKind;
+  route_id: string | null;
+  title: string;
+  origin: string;
+  destination: string;
+  description: string | null;
+  departure_time: string;
+  duration_min: number;
   status: RequestStatus;
+  requested_by: string;
+  reviewed_by: string | null;
   created_at: string;
-  approved_at: string | null;
+  reviewed_at: string | null;
 }
 
 // Estrutura no formato esperado por createClient<Database>().
@@ -98,29 +94,34 @@ export interface Database {
       };
       routes: {
         Row: Row<Route>;
-        Insert: Insert<Route, "id" | "is_active" | "created_at">;
+        Insert: Insert<
+          Route,
+          "id" | "departure_time" | "duration_min" | "is_active" | "created_at"
+        >;
         Update: Update<Route>;
         Relationships: [];
       };
-      driver_availability: {
-        Row: Row<DriverAvailability>;
+      route_assignments: {
+        Row: Row<RouteAssignment>;
+        Insert: Insert<RouteAssignment, "id" | "status" | "created_at">;
+        Update: Update<RouteAssignment>;
+        Relationships: [];
+      };
+      route_requests: {
+        Row: Row<RouteRequest>;
         Insert: Insert<
-          DriverAvailability,
-          "id" | "weekday" | "date" | "is_active" | "created_at"
+          RouteRequest,
+          | "id"
+          | "route_id"
+          | "description"
+          | "departure_time"
+          | "duration_min"
+          | "status"
+          | "reviewed_by"
+          | "created_at"
+          | "reviewed_at"
         >;
-        Update: Update<DriverAvailability>;
-        Relationships: [];
-      };
-      trips: {
-        Row: Row<Trip>;
-        Insert: Insert<Trip, "id" | "status" | "created_at">;
-        Update: Update<Trip>;
-        Relationships: [];
-      };
-      trip_requests: {
-        Row: Row<TripRequest>;
-        Insert: Insert<TripRequest, "id" | "status" | "created_at" | "approved_at">;
-        Update: Update<TripRequest>;
+        Update: Update<RouteRequest>;
         Relationships: [];
       };
     };
@@ -128,8 +129,8 @@ export interface Database {
     Functions: Record<string, never>;
     Enums: {
       user_role: UserRole;
-      trip_status: TripStatus;
       request_status: RequestStatus;
+      assignment_status: AssignmentStatus;
     };
   };
 }

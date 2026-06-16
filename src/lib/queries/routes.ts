@@ -6,6 +6,8 @@ export type RouteInput = {
   origin: string;
   destination: string;
   description: string | null;
+  departure_time: string; // HH:MM
+  duration_min: number;
   is_active: boolean;
 };
 

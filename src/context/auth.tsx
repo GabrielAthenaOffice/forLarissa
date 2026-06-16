@@ -9,13 +9,14 @@ import {
 import type { Session } from "@supabase/supabase-js";
 
 import { supabase } from "@/lib/supabase";
-import type { Profile, UserRole } from "@/types/database";
+import type { Profile } from "@/types/database";
 
+// Autocadastro sempre cria motorista (fica pendente de aprovação do admin).
+// Contas de coordenador/admin são criadas pelo admin via Edge Function.
 type SignUpParams = {
   name: string;
   email: string;
   password: string;
-  role: UserRole;
 };
 
 type AuthResult = { error: string | null };
@@ -95,11 +96,11 @@ export function SessionProvider({ children }: PropsWithChildren) {
         });
         return { error: error?.message ?? null };
       },
-      async signUp({ name, email, password, role }) {
+      async signUp({ name, email, password }) {
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
           password,
-          options: { data: { name: name.trim(), role } },
+          options: { data: { name: name.trim(), role: "driver" } },
         });
         return {
           error: error?.message ?? null,

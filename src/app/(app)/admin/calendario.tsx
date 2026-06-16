@@ -6,39 +6,41 @@ import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { MaxContentWidth, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
-import { listUpcomingTrips, type ReportTrip } from "@/lib/queries/trips";
+import {
+  listUpcomingAssignments,
+  type AssignmentWithDetails,
+} from "@/lib/queries/assignments";
 
 const STATUS_LABEL: Record<string, string> = {
-  open: "Aberta",
-  full: "Lotada",
-  cancelled: "Cancelada",
+  assigned: "Designada",
   completed: "Concluída",
+  cancelled: "Cancelada",
 };
 
 export default function CalendarScreen() {
   const theme = useTheme();
-  const [trips, setTrips] = useState<ReportTrip[]>([]);
+  const [items, setItems] = useState<AssignmentWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
 
   useFocusEffect(
     useCallback(() => {
       setLoading(true);
-      listUpcomingTrips()
-        .then(setTrips)
+      listUpcomingAssignments()
+        .then(setItems)
         .finally(() => setLoading(false));
     }, [])
   );
 
-  // Agrupa por data preservando a ordem (a query já vem ordenada por data/hora).
+  // Agrupa por data preservando a ordem (a query já vem ordenada por data).
   const sections = useMemo(() => {
-    const groups: { title: string; data: ReportTrip[] }[] = [];
-    for (const t of trips) {
+    const groups: { title: string; data: AssignmentWithDetails[] }[] = [];
+    for (const a of items) {
       const last = groups[groups.length - 1];
-      if (last && last.title === t.trip_date) last.data.push(t);
-      else groups.push({ title: t.trip_date, data: [t] });
+      if (last && last.title === a.date) last.data.push(a);
+      else groups.push({ title: a.date, data: [a] });
     }
     return groups;
-  }, [trips]);
+  }, [items]);
 
   if (loading) {
     return (
@@ -52,12 +54,12 @@ export default function CalendarScreen() {
     <ThemedView style={styles.container}>
       <SectionList
         sections={sections}
-        keyExtractor={(t) => t.id}
+        keyExtractor={(a) => a.id}
         contentContainerStyle={styles.list}
         stickySectionHeadersEnabled={false}
         ListEmptyComponent={
           <ThemedText type="small" themeColor="textSecondary" style={styles.empty}>
-            Nenhuma viagem agendada.
+            Nenhuma rota designada.
           </ThemedText>
         }
         renderSectionHeader={({ section }) => (
@@ -76,8 +78,8 @@ export default function CalendarScreen() {
               </ThemedText>
             </View>
             <ThemedText type="small" themeColor="textSecondary">
-              {item.departure_time?.slice(0, 5)} · {item.driver?.profile?.name ?? "—"} ·{" "}
-              {Math.max(0, item.total_seats - item.available_seats)}/{item.total_seats} confirmados
+              {item.route?.departure_time?.slice(0, 5)} · {item.route?.duration_min} min ·{" "}
+              {item.driver?.profile?.name ?? "—"}
             </ThemedText>
           </View>
         )}
@@ -96,5 +98,3 @@ const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", gap: Spacing.two },
   flex: { flex: 1 },
 });
-
-

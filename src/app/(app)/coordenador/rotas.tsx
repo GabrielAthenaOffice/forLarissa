@@ -1,12 +1,6 @@
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
-import {
-  ActivityIndicator,
-  FlatList,
-  Pressable,
-  StyleSheet,
-  View,
-} from "react-native";
+import { ActivityIndicator, FlatList, StyleSheet, View } from "react-native";
 
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
@@ -16,14 +10,13 @@ import { useTheme } from "@/hooks/use-theme";
 import { listRoutes } from "@/lib/queries/routes";
 import type { Route } from "@/types/database";
 
-export default function RoutesListScreen() {
+export default function CoordenadorRoutesScreen() {
   const router = useRouter();
   const theme = useTheme();
   const [routes, setRoutes] = useState<Route[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Recarrega sempre que a tela volta ao foco (após criar/editar).
   useFocusEffect(
     useCallback(() => {
       let active = true;
@@ -46,8 +39,8 @@ export default function RoutesListScreen() {
         contentContainerStyle={styles.list}
         ListHeaderComponent={
           <Button
-            title="+ Nova rota"
-            onPress={() => router.push("/admin/rota-form")}
+            title="+ Solicitar nova rota"
+            onPress={() => router.push("/coordenador/solicitar-rota")}
           />
         }
         ListEmptyComponent={
@@ -58,28 +51,13 @@ export default function RoutesListScreen() {
               {error}
             </ThemedText>
           ) : (
-            <ThemedText
-              type="small"
-              themeColor="textSecondary"
-              style={styles.spacer}
-            >
+            <ThemedText type="small" themeColor="textSecondary" style={styles.spacer}>
               Nenhuma rota cadastrada ainda.
             </ThemedText>
           )
         }
         renderItem={({ item }) => (
-          <Pressable
-            onPress={() =>
-              router.push({
-                pathname: "/admin/rota-form",
-                params: { id: item.id },
-              })
-            }
-            style={({ pressed }) => [
-              styles.card,
-              { backgroundColor: theme.backgroundElement, opacity: pressed ? 0.7 : 1 },
-            ]}
-          >
+          <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
             <View style={styles.cardHeader}>
               <ThemedText type="smallBold" style={styles.flex}>
                 {item.title}
@@ -96,7 +74,18 @@ export default function RoutesListScreen() {
             <ThemedText type="small" themeColor="textSecondary">
               {item.departure_time?.slice(0, 5)} · {item.duration_min} min
             </ThemedText>
-          </Pressable>
+            <Button
+              title="Solicitar edição"
+              variant="secondary"
+              onPress={() =>
+                router.push({
+                  pathname: "/coordenador/solicitar-rota",
+                  params: { id: item.id },
+                })
+              }
+              style={styles.btn}
+            />
+          </View>
         )}
       />
     </ThemedView>
@@ -108,13 +97,8 @@ const styles = StyleSheet.create({
   list: { padding: Spacing.three, gap: Spacing.three, width: "100%", maxWidth: MaxContentWidth, alignSelf: "center" },
   spacer: { marginTop: Spacing.five, textAlign: "center" },
   error: { color: "#e5484d", marginTop: Spacing.five, textAlign: "center" },
-  card: {
-    padding: Spacing.three,
-    borderRadius: Spacing.three,
-    gap: Spacing.half,
-  },
+  card: { padding: Spacing.three, borderRadius: Spacing.three, gap: Spacing.half },
   cardHeader: { flexDirection: "row", alignItems: "center", gap: Spacing.two },
   flex: { flex: 1 },
+  btn: { marginTop: Spacing.two },
 });
-
-

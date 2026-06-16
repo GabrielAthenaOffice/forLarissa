@@ -1,14 +1,14 @@
 import type { UserRole } from "@/types/database";
 
 /** Rota inicial (dentro de /(app)) de cada perfil. */
-export const roleHome: Record<UserRole, "/passageiro" | "/motorista" | "/admin"> = {
-  passenger: "/passageiro",
+export const roleHome: Record<UserRole, "/motorista" | "/coordenador" | "/admin"> = {
   driver: "/motorista",
+  coordinator: "/coordenador",
   admin: "/admin",
 };
 
 export const roleLabel: Record<UserRole, string> = {
-  passenger: "Passageiro",
   driver: "Motorista",
-  admin: "Coordenador",
+  coordinator: "Coordenador",
+  admin: "Administrador",
 };

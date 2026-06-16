@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Spacing, Radii } from "@/constants/theme";
 import { useSession } from "@/context/auth";
 import { useTheme } from "@/hooks/use-theme";
+import { roleLabel } from "@/lib/roles";
 
 export default function ProfileScreen() {
   const { profile, signOut, updatePassword, updateProfileName } = useSession();
@@ -95,7 +96,7 @@ export default function ProfileScreen() {
 
             <View style={[styles.badge, { backgroundColor: theme.accentSoft }]}>
               <ThemedText type="smallBold" themeColor="accent">
-                {profile?.role === "driver" ? "Motorista" : profile?.role === "passenger" ? "Passageiro" : "Administrador"}
+                {profile ? roleLabel[profile.role] : "—"}
               </ThemedText>
             </View>
           </View>

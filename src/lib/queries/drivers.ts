@@ -1,5 +1,31 @@
 import { supabase } from "@/lib/supabase";
-import type { Driver, Profile } from "@/types/database";
+import type { Driver, Profile, UserRole } from "@/types/database";
+
+export type NewAccount = {
+  name: string;
+  email: string;
+  password?: string;
+  role: Extract<UserRole, "driver" | "coordinator">;
+};
+
+/**
+ * Admin cria uma conta (motorista/coordenador) via Edge Function `create-account`.
+ * Retorna a senha (a gerada, se nenhuma foi informada) para repassar ao usuário.
+ */
+export async function createAccount(
+  input: NewAccount
+): Promise<{ password: string }> {
+  const { data, error } = await supabase.functions.invoke("create-account", {
+    body: input,
+  });
+  if (error) {
+    // A Edge Function devolve { error } no corpo em caso de 4xx.
+    const message =
+      (data as { error?: string } | null)?.error ?? error.message ?? "Erro ao criar conta";
+    throw new Error(message);
+  }
+  return { password: (data as { password: string }).password };
+}
 
 export type DriverWithProfile = Driver & {
   profile: Pick<Profile, "name" | "email"> | null;

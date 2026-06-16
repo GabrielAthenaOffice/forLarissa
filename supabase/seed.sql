@@ -5,19 +5,19 @@
 -- NÃO use em produção: cria usuários de teste com senha fixa.
 --
 -- Usuários (senha de todos: password123):
---   admin@rotasflow.dev      → admin
---   motorista@rotasflow.dev  → driver (aprovado)
---   passageiro@rotasflow.dev → passenger
+--   admin@rotasflow.dev        → admin
+--   motorista@rotasflow.dev    → driver (aprovado)
+--   coordenador@rotasflow.dev  → coordinator
 -- =============================================================================
 
 -- IDs fixos para reprodutibilidade
 do $$
 declare
-  admin_id     uuid := '00000000-0000-0000-0000-000000000a01';
-  driver_id    uuid := '00000000-0000-0000-0000-000000000d01';
-  passenger_id uuid := '00000000-0000-0000-0000-000000000c01';
-  v_driver_id  uuid;
-  v_route_id   uuid;
+  admin_id       uuid := '00000000-0000-0000-0000-000000000a01';
+  driver_id      uuid := '00000000-0000-0000-0000-000000000d01';
+  coordinator_id uuid := '00000000-0000-0000-0000-000000000c01';
+  v_driver_id    uuid;
+  v_route_id     uuid;
 begin
   -- ---- auth.users (dispara trigger handle_new_user → cria profiles) ----------
   insert into auth.users
@@ -28,15 +28,15 @@ begin
     (admin_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
      'admin@rotasflow.dev', crypt('password123', gen_salt('bf')), now(),
      '{"provider":"email","providers":["email"]}',
-     '{"name":"Coordenador","role":"admin"}', now(), now()),
+     '{"name":"Admin Geral","role":"admin"}', now(), now()),
     (driver_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
      'motorista@rotasflow.dev', crypt('password123', gen_salt('bf')), now(),
      '{"provider":"email","providers":["email"]}',
      '{"name":"Carlos Motorista","role":"driver"}', now(), now()),
-    (passenger_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
-     'passageiro@rotasflow.dev', crypt('password123', gen_salt('bf')), now(),
+    (coordinator_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+     'coordenador@rotasflow.dev', crypt('password123', gen_salt('bf')), now(),
      '{"provider":"email","providers":["email"]}',
-     '{"name":"Ana Passageira","role":"passenger"}', now(), now())
+     '{"name":"Ana Coordenadora","role":"coordinator"}', now(), now())
   on conflict (id) do nothing;
 
   -- identities (necessário p/ login por email no GoTrue)
@@ -49,8 +49,8 @@ begin
     (gen_random_uuid(), driver_id, driver_id::text,
      format('{"sub":"%s","email":"motorista@rotasflow.dev"}', driver_id)::jsonb,
      'email', now(), now(), now()),
-    (gen_random_uuid(), passenger_id, passenger_id::text,
-     format('{"sub":"%s","email":"passageiro@rotasflow.dev"}', passenger_id)::jsonb,
+    (gen_random_uuid(), coordinator_id, coordinator_id::text,
+     format('{"sub":"%s","email":"coordenador@rotasflow.dev"}', coordinator_id)::jsonb,
      'email', now(), now(), now())
   on conflict do nothing;
 
@@ -66,18 +66,24 @@ begin
     select id into v_driver_id from public.drivers where profile_id = driver_id;
   end if;
 
-  -- ---- routes: rotas criadas pelo admin -------------------------------------
-  insert into public.routes (title, origin, destination, description, created_by)
+  -- ---- routes: rotas criadas pelo admin (com horário e duração) -------------
+  insert into public.routes (title, origin, destination, description, departure_time, duration_min, created_by)
   values
-    ('Centro → Zona Sul', 'Centro', 'Zona Sul', 'Rota comercial da manhã', admin_id),
-    ('Bairro → Universidade', 'Bairro Industrial', 'Campus Universitário', 'Saída para aulas', admin_id)
+    ('Centro → Zona Sul', 'Centro', 'Zona Sul', 'Rota comercial da manhã', '07:30', 45, admin_id),
+    ('Bairro → Universidade', 'Bairro Industrial', 'Campus Universitário', 'Saída para aulas', '06:45', 60, admin_id)
   on conflict do nothing;
 
   select id into v_route_id from public.routes where title = 'Centro → Zona Sul' limit 1;
 
-  -- ---- disponibilidade por data → cria trip automaticamente -----------------
-  insert into public.driver_availability
-    (driver_id, route_id, date, departure_time, available_seats)
+  -- ---- designação: admin atribui a rota ao motorista para amanhã ------------
+  insert into public.route_assignments (route_id, driver_id, date, created_by)
+  values (v_route_id, v_driver_id, current_date + 1, admin_id)
+  on conflict (route_id, driver_id, date) do nothing;
+
+  -- ---- solicitação do coordenador (pendente de aprovação do admin) ----------
+  insert into public.route_requests
+    (kind, title, origin, destination, description, departure_time, duration_min, requested_by)
   values
-    (v_driver_id, v_route_id, current_date + 1, '07:30', 3);
+    ('create', 'Terminal → Hospital', 'Terminal Rodoviário', 'Hospital Central',
+     'Demanda da equipe de enfermagem', '05:30', 30, coordinator_id);
 end $$;

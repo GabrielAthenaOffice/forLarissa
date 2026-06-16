@@ -8,10 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import {
-  listManagedRequests,
-  setRequestStatus,
-  type RequestWithDetails,
-} from "@/lib/queries/requests";
+  listManagedRouteRequests,
+  setRouteRequestStatus,
+  type RouteRequestWithRequester,
+} from "@/lib/queries/route-requests";
 
 const STATUS_LABEL: Record<string, string> = {
   pending: "Pendente",
@@ -21,12 +21,12 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 /**
- * Lista e gerencia solicitações no escopo do usuário logado (motorista vê as
- * das suas viagens, admin vê todas — RLS decide). Permite aprovar/recusar.
+ * Lista e gerencia solicitações de rota (coordenador → admin). O admin pode
+ * aprovar (aplica a mudança em routes via trigger) ou recusar.
  */
 export function RequestsManager() {
   const theme = useTheme();
-  const [requests, setRequests] = useState<RequestWithDetails[]>([]);
+  const [requests, setRequests] = useState<RouteRequestWithRequester[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actingId, setActingId] = useState<string | null>(null);
@@ -34,7 +34,7 @@ export function RequestsManager() {
   const load = useCallback(() => {
     setLoading(true);
     setError(null);
-    listManagedRequests()
+    listManagedRouteRequests()
       .then(setRequests)
       .catch((e: any) => setError(e.message ?? "Erro ao carregar solicitações"))
       .finally(() => setLoading(false));
@@ -46,7 +46,7 @@ export function RequestsManager() {
     setActingId(id);
     setError(null);
     try {
-      await setRequestStatus(id, status);
+      await setRouteRequestStatus(id, status);
       load();
     } catch (e: any) {
       setError(e.message ?? "Erro ao atualizar solicitação");
@@ -87,16 +87,24 @@ export function RequestsManager() {
             <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
               <View style={styles.row}>
                 <ThemedText type="smallBold" style={styles.flex}>
-                  {item.passenger?.name ?? "Passageiro"}
+                  {item.kind === "create" ? "Criar rota" : "Editar rota"}: {item.title}
                 </ThemedText>
                 <ThemedText type="small" themeColor="textSecondary">
                   {STATUS_LABEL[item.status] ?? item.status}
                 </ThemedText>
               </View>
               <ThemedText type="small" themeColor="textSecondary">
-                {item.trip?.route?.title ?? "Rota"} · {item.trip?.trip_date} às{" "}
-                {item.trip?.departure_time?.slice(0, 5)}
+                {item.origin} → {item.destination}
               </ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                {item.departure_time?.slice(0, 5)} · {item.duration_min} min · por{" "}
+                {item.requester?.name ?? "Coordenador"}
+              </ThemedText>
+              {item.description ? (
+                <ThemedText type="small" themeColor="textSecondary">
+                  {item.description}
+                </ThemedText>
+              ) : null}
 
               {isPending && (
                 <View style={styles.actions}>
@@ -135,5 +143,3 @@ const styles = StyleSheet.create({
   actions: { flexDirection: "row", gap: Spacing.two, marginTop: Spacing.one },
   actionBtn: { flex: 1 },
 });
-
-

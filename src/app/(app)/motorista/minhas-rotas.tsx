@@ -5,39 +5,45 @@ import { ActivityIndicator, FlatList, StyleSheet, View } from "react-native";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { MaxContentWidth, Spacing } from "@/constants/theme";
-import { useSession } from "@/context/auth";
+import { useMyDriver } from "@/hooks/use-my-driver";
 import { useTheme } from "@/hooks/use-theme";
 import {
-  isPastRequest,
-  listPassengerRequests,
-  type PassengerRequest,
-} from "@/lib/queries/requests";
+  listDriverAssignments,
+  type AssignmentWithRoute,
+} from "@/lib/queries/assignments";
 
 const STATUS_LABEL: Record<string, string> = {
-  pending: "Não confirmada",
-  approved: "Realizada",
-  rejected: "Recusada",
+  assigned: "Designada",
+  completed: "Concluída",
   cancelled: "Cancelada",
 };
 
-export default function HistoryScreen() {
-  const { profile } = useSession();
+export default function MinhasRotasScreen() {
   const theme = useTheme();
-  const [requests, setRequests] = useState<PassengerRequest[]>([]);
+  const { driver, loading: loadingDriver } = useMyDriver();
+  const [items, setItems] = useState<AssignmentWithRoute[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(() => {
-    if (!profile) return;
-    setLoading(true);
-    listPassengerRequests(profile.id)
-      // Histórico: viagens já realizadas ou com data passada.
-      .then((all) => setRequests(all.filter(isPastRequest)))
-      .finally(() => setLoading(false));
-  }, [profile]);
+  useFocusEffect(
+    useCallback(() => {
+      if (!driver) {
+        if (!loadingDriver) setLoading(false);
+        return;
+      }
+      let active = true;
+      setError(null);
+      listDriverAssignments(driver.id)
+        .then((data) => active && setItems(data))
+        .catch((e) => active && setError(e.message ?? "Erro ao carregar rotas"))
+        .finally(() => active && setLoading(false));
+      return () => {
+        active = false;
+      };
+    }, [driver, loadingDriver])
+  );
 
-  useFocusEffect(load);
-
-  if (loading) {
+  if (loading || loadingDriver) {
     return (
       <ThemedView style={styles.center}>
         <ActivityIndicator />
@@ -45,32 +51,50 @@ export default function HistoryScreen() {
     );
   }
 
+  if (!driver) {
+    return (
+      <ThemedView style={styles.center}>
+        <ThemedText type="small" themeColor="textSecondary" style={styles.empty}>
+          Cadastre seu veículo para receber rotas.
+        </ThemedText>
+      </ThemedView>
+    );
+  }
+
   return (
     <ThemedView style={styles.container}>
       <FlatList
-        data={requests}
-        keyExtractor={(r) => r.id}
+        data={items}
+        keyExtractor={(i) => i.id}
         contentContainerStyle={styles.list}
+        ListHeaderComponent={
+          error ? (
+            <ThemedText type="small" style={styles.error}>
+              {error}
+            </ThemedText>
+          ) : null
+        }
         ListEmptyComponent={
           <ThemedText type="small" themeColor="textSecondary" style={styles.empty}>
-            Você ainda não tem viagens no histórico.
+            Você ainda não tem rotas designadas.
           </ThemedText>
         }
         renderItem={({ item }) => (
           <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
             <View style={styles.row}>
               <ThemedText type="smallBold" style={styles.flex}>
-                {item.trip?.route?.title ?? "Rota"}
+                {item.route?.title ?? "Rota"}
               </ThemedText>
               <ThemedText type="small" themeColor="textSecondary">
                 {STATUS_LABEL[item.status] ?? item.status}
               </ThemedText>
             </View>
             <ThemedText type="small" themeColor="textSecondary">
-              {item.trip?.route?.origin} → {item.trip?.route?.destination}
+              {item.route?.origin} → {item.route?.destination}
             </ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
-              {item.trip?.trip_date} às {item.trip?.departure_time?.slice(0, 5)}
+              {item.date} · {item.route?.departure_time?.slice(0, 5)} ·{" "}
+              {item.route?.duration_min} min
             </ThemedText>
           </View>
         )}
@@ -81,12 +105,11 @@ export default function HistoryScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  center: { flex: 1, alignItems: "center", justifyContent: "center", padding: Spacing.four },
   list: { padding: Spacing.three, gap: Spacing.three, width: "100%", maxWidth: MaxContentWidth, alignSelf: "center" },
   empty: { textAlign: "center", marginTop: Spacing.five },
+  error: { color: "#e5484d", marginBottom: Spacing.three },
   card: { padding: Spacing.three, borderRadius: Spacing.three, gap: Spacing.half },
   row: { flexDirection: "row", alignItems: "center", gap: Spacing.two },
   flex: { flex: 1 },
 });
-
-
