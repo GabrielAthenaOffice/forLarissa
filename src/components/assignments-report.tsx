@@ -164,15 +164,19 @@ export function AssignmentsReport({ canExport = true }: { canExport?: boolean })
           </body>
         </html>
       `;
-      const { uri } = await Print.printToFileAsync({ html });
       if (Platform.OS === "web") {
-        const link = document.createElement("a");
-        link.href = uri;
-        link.setAttribute("download", `relatorio-${date}.pdf`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        // No web o expo-print não gera arquivo: abrimos o HTML numa nova janela
+        // e disparamos a impressão, onde o usuário escolhe "Salvar como PDF".
+        const win = window.open("", "_blank");
+        if (!win) {
+          throw new Error("Pop-up bloqueado. Permita pop-ups para gerar o PDF.");
+        }
+        win.document.write(html);
+        win.document.close();
+        win.focus();
+        win.print();
       } else {
+        const { uri } = await Print.printToFileAsync({ html });
         await Sharing.shareAsync(uri);
       }
     } catch (err: any) {
