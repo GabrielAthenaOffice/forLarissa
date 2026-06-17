@@ -2,6 +2,7 @@ import { useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, SectionList, StyleSheet, View } from "react-native";
 
+import { CalendarComponent } from "@/components/calendar";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { MaxContentWidth, Spacing } from "@/constants/theme";
@@ -19,28 +20,42 @@ const STATUS_LABEL: Record<string, string> = {
 
 export default function CalendarScreen() {
   const theme = useTheme();
-  const [items, setItems] = useState<AssignmentWithDetails[]>([]);
+  const [allItems, setAllItems] = useState<AssignmentWithDetails[]>([]);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useFocusEffect(
     useCallback(() => {
       setLoading(true);
       listUpcomingAssignments()
-        .then(setItems)
+        .then((data) => {
+          setAllItems(data);
+          // Define o primeiro dia com rota como selecionado
+          if (data.length > 0) {
+            const firstDate = data[0].date.split(" ")[0];
+            setSelectedDate(firstDate);
+          }
+        })
         .finally(() => setLoading(false));
     }, [])
   );
 
-  // Agrupa por data preservando a ordem (a query já vem ordenada por data).
+  // Filtra assignments para o dia selecionado
+  const itemsForSelectedDate = useMemo(() => {
+    if (!selectedDate) return [];
+    return allItems.filter((a) => a.date.startsWith(selectedDate));
+  }, [allItems, selectedDate]);
+
+  // Agrupa por data os items do dia selecionado
   const sections = useMemo(() => {
     const groups: { title: string; data: AssignmentWithDetails[] }[] = [];
-    for (const a of items) {
+    for (const a of itemsForSelectedDate) {
       const last = groups[groups.length - 1];
       if (last && last.title === a.date) last.data.push(a);
       else groups.push({ title: a.date, data: [a] });
     }
     return groups;
-  }, [items]);
+  }, [itemsForSelectedDate]);
 
   if (loading) {
     return (
@@ -52,15 +67,23 @@ export default function CalendarScreen() {
 
   return (
     <ThemedView style={styles.container}>
+      <CalendarComponent
+        assignments={allItems}
+        selectedDate={selectedDate}
+        onSelectDate={setSelectedDate}
+      />
       <SectionList
         sections={sections}
         keyExtractor={(a) => a.id}
         contentContainerStyle={styles.list}
         stickySectionHeadersEnabled={false}
+        scrollEnabled={false}
         ListEmptyComponent={
-          <ThemedText type="small" themeColor="textSecondary" style={styles.empty}>
-            Nenhuma rota designada.
-          </ThemedText>
+          selectedDate ? (
+            <ThemedText type="small" themeColor="textSecondary" style={styles.empty}>
+              Nenhuma rota designada para este dia.
+            </ThemedText>
+          ) : null
         }
         renderSectionHeader={({ section }) => (
           <ThemedText type="smallBold" style={styles.dateHeader}>
@@ -92,8 +115,8 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   list: { padding: Spacing.three, gap: Spacing.two, width: "100%", maxWidth: MaxContentWidth, alignSelf: "center" },
-  empty: { textAlign: "center", marginTop: Spacing.five },
-  dateHeader: { marginTop: Spacing.three, marginBottom: Spacing.one },
+  empty: { textAlign: "center", marginTop: Spacing.three },
+  dateHeader: { marginTop: Spacing.two, marginBottom: Spacing.one },
   card: { padding: Spacing.three, borderRadius: Spacing.three, gap: Spacing.half },
   row: { flexDirection: "row", alignItems: "center", gap: Spacing.two },
   flex: { flex: 1 },
