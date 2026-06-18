@@ -31,6 +31,45 @@ export type DriverWithProfile = Driver & {
   profile: Pick<Profile, "name" | "email"> | null;
 };
 
+/** Conta de motorista (profile) + cadastro de veículo (drivers), que pode não existir ainda. */
+export type DriverAccount = {
+  profileId: string;
+  name: string;
+  email: string;
+  driver: Pick<
+    Driver,
+    | "id"
+    | "phone"
+    | "vehicle_model"
+    | "vehicle_plate"
+    | "vehicle_color"
+    | "seat_count"
+    | "is_approved"
+  > | null;
+};
+
+/**
+ * Todas as contas com role=driver (admin), incluindo as recém-criadas que ainda
+ * não cadastraram veículo (sem linha em `drivers`). Mais recentes primeiro.
+ *
+ * Difere de `listAllDrivers`, que parte da tabela `drivers` e por isso só mostra
+ * quem já preencheu o veículo — usada em designações e na tela do coordenador.
+ */
+export async function listDriverAccounts(): Promise<DriverAccount[]> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select(
+      "id, name, email, created_at, drivers(id, phone, vehicle_model, vehicle_plate, vehicle_color, seat_count, is_approved)"
+    )
+    .eq("role", "driver")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((p: any) => {
+    const d = Array.isArray(p.drivers) ? p.drivers[0] ?? null : p.drivers ?? null;
+    return { profileId: p.id, name: p.name, email: p.email, driver: d };
+  });
+}
+
 export type DriverInput = {
   phone: string | null;
   vehicle_model: string | null;

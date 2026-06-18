@@ -8,8 +8,8 @@
 //
 // Deploy:
 //   supabase functions deploy create-account
-//   supabase secrets set SUPABASE_SERVICE_ROLE_KEY=<service_role_key>
-// (SUPABASE_URL e SUPABASE_ANON_KEY já vêm injetadas pelo runtime.)
+// SUPABASE_URL, SUPABASE_ANON_KEY e SUPABASE_SERVICE_ROLE_KEY já vêm injetados
+// pelo runtime — NÃO usar `secrets set` (o prefixo SUPABASE_ é reservado).
 // =============================================================================
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
